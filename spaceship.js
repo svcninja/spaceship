@@ -43,8 +43,69 @@ var StarStream = Rx.Observable.range(1, STAR_NUMBER)
       return starArray;
     });
   })
-  .subscribe(function(starArray) {
-    paintStars(starArray);
+  // .subscribe(function(starArray) {
+  //   paintStars(starArray);
+  // });
+
+var HERO_Y = canvas.height - 30;
+var mouseMove = Rx.Observable.fromEvent(canvas, 'mousemove');
+var SpaceShip = mouseMove
+  .map(function(event) {
+    return {
+      x: event.clientX,
+      y: HERO_Y
+    };
+  })
+  .startWith({
+    x: canvas.width / 2,
+    y: HERO_Y
   });
 
+function drawTriangle(x, y, width, color, direction) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x - width, y);
+  ctx.lineTo(x, direction === 'up' ? y - width : y + width);
+  ctx.lineTo(x + width, y);
+  ctx.lineTo(x - width,y);
+  ctx.fill();
+}
+function paintSpaceShip(x, y) {
+  drawTriangle(x, y, 20, '#ff0000', 'up');
+}
+function renderScene(actors) {
+  paintStars(actors.stars);
+  paintSpaceShip(actors.spaceship.x, actors.spaceship.y);
+  paintEnemies(actors.enemies);
+}
+var ENEMY_FREQ = 1500;
+var Enemies = Rx.Observable.interval(ENEMY_FREQ)
+  .scan(function(enemyArray) {
+    var enemy = {
+      x: parseInt(Math.random() * canvas.width),
+      y: -30,
+    };
 
+    enemyArray.push(enemy);
+    return enemyArray;
+  }, []);
+var Game = Rx.Observable
+  .combineLatest(
+    StarStream, SpaceShip,Enemies,
+    function(stars, spaceship,enemies) {
+      return { stars: stars, spaceship: spaceship, enemies: enemies };
+    }).sample(SPEED);
+// Helper function to get a random integer
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function paintEnemies(enemies) {
+  enemies.forEach(function(enemy) {
+    enemy.y += 5;
+    enemy.x += getRandomInt(-10, 10);
+
+    drawTriangle(enemy.x, enemy.y, 20, '#00ff00', 'down');
+  });
+}
+
+Game.subscribe(renderScene);
