@@ -172,4 +172,18 @@ function gameOver(ship, enemies) {
     });
   });
 }
-Game.subscribe(renderScene);
+Game.subscribe(renderScene,
+  function (err) {
+    console.log('Error: %s', err);
+  },
+  function () {
+    console.log('Completed');
+    var image = new Image();
+    image.src = 'gameover.png';
+    image.onload = function () {
+        ctx.drawImage(image,
+             canvas.width / 2 - image.width / 2,
+             canvas.height / 2 - image.height / 2
+        );
+    };
+  });
