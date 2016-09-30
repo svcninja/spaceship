@@ -77,6 +77,7 @@ function renderScene(actors) {
   paintStars(actors.stars);
   paintSpaceShip(actors.spaceship.x, actors.spaceship.y);
   paintEnemies(actors.enemies);
+  paintHeroShots(actors.heroShots);
 }
 var ENEMY_FREQ = 1500;
 var Enemies = Rx.Observable.interval(ENEMY_FREQ)
@@ -89,11 +90,32 @@ var Enemies = Rx.Observable.interval(ENEMY_FREQ)
     enemyArray.push(enemy);
     return enemyArray;
   }, []);
+var playerFiring = Rx.Observable
+  .merge(
+    Rx.Observable.fromEvent(canvas, 'click'),
+    Rx.Observable.fromEvent(document, 'keydown')
+      .filter(function(evt) { return evt.keycode === 32; })
+  )
+  .startWith({})
+  .sample(200)
+  .timestamp();
+
+var HeroShots = Rx.Observable
+  .combineLatest(
+    playerFiring,
+    SpaceShip,
+    function(shotEvents, spaceShip) {
+      return { timestamp: shotEvents.timestamp,x: spaceShip.x };
+    }).distinctUntilChanged(function(shot) { return shot.timestamp; })
+  .scan(function(shotArray, shot) {
+    shotArray.push({x: shot.x, y: HERO_Y});
+    return shotArray;
+  }, []);
 var Game = Rx.Observable
   .combineLatest(
-    StarStream, SpaceShip,Enemies,
-    function(stars, spaceship,enemies) {
-      return { stars: stars, spaceship: spaceship, enemies: enemies };
+    StarStream, SpaceShip,Enemies,HeroShots,
+    function(stars, spaceship,enemies,heroShots) {
+      return { stars: stars, spaceship: spaceship, enemies: enemies, heroShots: heroShots };
     }).sample(SPEED);
 // Helper function to get a random integer
 function getRandomInt(min, max) {
@@ -107,5 +129,11 @@ function paintEnemies(enemies) {
     drawTriangle(enemy.x, enemy.y, 20, '#00ff00', 'down');
   });
 }
-
+var SHOOTING_SPEED = 15;
+function paintHeroShots(heroShots) {
+  heroShots.forEach(function(shot) {
+    shot.y -= SHOOTING_SPEED;
+    drawTriangle(shot.x, shot.y, 5, '#ffff00', 'up');
+  });
+}
 Game.subscribe(renderScene);
