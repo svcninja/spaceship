@@ -67,6 +67,7 @@ function renderScene(actors) {
     paintSpaceShip(actors.spaceship.x, actors.spaceship.y);
     paintEnemies(actors.enemies);
     paintHeroShots(actors.heroShots, actors.enemies);
+    paintScore(actors.score);
 }
 var ENEMY_FREQ = 1500;
 var ENEMY_SHOOTING_FREQ = 750;
@@ -90,7 +91,7 @@ var Enemies = Rx.Observable.interval(ENEMY_FREQ)
 var playerFiring = Rx.Observable.fromEvent(canvas, 'click').startWith({})
     .sample(200)
     .timestamp();
-
+var SCORE_INCREASE = 10;
 var HeroShots = Rx.Observable
     .combineLatest(
         playerFiring,
@@ -103,11 +104,15 @@ var HeroShots = Rx.Observable
         shotArray.push({ x: shot.x, y: HERO_Y });
         return shotArray;
     }, []);
+var ScoreSubject = new Rx.BehaviorSubject(0);
+var score = ScoreSubject.scan(function (prev, cur) {
+  return prev + cur;
+}, 0);
 var Game = Rx.Observable
     .combineLatest(
-        StarStream, SpaceShip, Enemies, HeroShots,
-        function(stars, spaceship, enemies, heroShots) {
-            return { stars: stars, spaceship: spaceship, enemies: enemies, heroShots: heroShots };
+        StarStream, SpaceShip, Enemies, HeroShots,score,
+        function(stars, spaceship, enemies, heroShots,score) {
+            return { stars: stars, spaceship: spaceship, enemies: enemies, heroShots: heroShots,score: score };
         }).sample(SPEED).takeWhile(function(actors) {
         return gameOver(actors.spaceship, actors.enemies) === false;
     });
@@ -135,6 +140,7 @@ function paintHeroShots(heroShots, enemies) {
         for (var l = 0; l < enemies.length; l++) {
             var enemy = enemies[l];
             if (!enemy.isDead && collision(shot, enemy)) {
+                ScoreSubject.onNext(SCORE_INCREASE);
                 enemy.isDead = true;
                 shot.x = shot.y = -100;
                 break;
@@ -165,6 +171,11 @@ function gameOver(ship, enemies) {
             return collision(ship, shot);
         });
     });
+}
+function paintScore(score) {
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 26px sans-serif';
+  ctx.fillText('Score: ' + score, 40, 43);
 }
 Game.subscribe(renderScene,
     function(err) {
