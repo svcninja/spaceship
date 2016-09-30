@@ -80,23 +80,22 @@ function renderScene(actors) {
   paintHeroShots(actors.heroShots);
 }
 var ENEMY_FREQ = 1500;
+var ENEMY_SHOOTING_FREQ = 750;
 var Enemies = Rx.Observable.interval(ENEMY_FREQ)
   .scan(function(enemyArray) {
     var enemy = {
       x: parseInt(Math.random() * canvas.width),
       y: -30,
+      shots: []
     };
-
+    Rx.Observable.interval(ENEMY_SHOOTING_FREQ).subscribe(function() {
+      enemy.shots.push({ x: enemy.x, y: enemy.y });
+      enemy.shots = enemy.shots.filter(isVisible);
+    });
     enemyArray.push(enemy);
-    return enemyArray;
+    return enemyArray.filter(isVisible);
   }, []);
-var playerFiring = Rx.Observable
-  .merge(
-    Rx.Observable.fromEvent(canvas, 'click'),
-    Rx.Observable.fromEvent(document, 'keydown')
-      .filter(function(evt) { return evt.keycode === 32; })
-  )
-  .startWith({})
+var playerFiring = Rx.Observable.fromEvent(canvas, 'click').startWith({})
   .sample(200)
   .timestamp();
 
@@ -127,6 +126,10 @@ function paintEnemies(enemies) {
     enemy.x += getRandomInt(-10, 10);
 
     drawTriangle(enemy.x, enemy.y, 20, '#00ff00', 'down');
+    enemy.shots.forEach(function(shot) {
+      shot.y += SHOOTING_SPEED;
+      drawTriangle(shot.x, shot.y, 5, '#00ffff', 'down');
+    });
   });
 }
 var SHOOTING_SPEED = 15;
@@ -135,5 +138,9 @@ function paintHeroShots(heroShots) {
     shot.y -= SHOOTING_SPEED;
     drawTriangle(shot.x, shot.y, 5, '#ffff00', 'up');
   });
+}
+function isVisible(obj) {
+  return obj.x > -40 && obj.x < canvas.width + 40 &&
+    obj.y > -40 && obj.y < canvas.height + 40;
 }
 Game.subscribe(renderScene);
